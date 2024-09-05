@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<style>
+		:root {
+			--txt: black;
+			--bg: white;
+			--gray: gray;
+			--shade: #ddd;
+		}
+		@media (prefers-color-scheme: dark) {
+			body {
+				--txt: white;
+				--bg: black;
+				--shade: #444;
+			}
+		}
+		body {
+			width: min(calc(100vw - 8rem), 52rem);
+			font-family: 'Segoe UI', 'Arial', system-ui, sans-serif;
+			font-size: 1.25rem;
+			background-color: var(--bg);
+			color: var(--txt);
+			position: absolute;
+			left: 50%;
+			top: 50%;
+			transform: translate(-50%, -50%);
+		}
+		nav span {
+			display: inline-block;
+			width: 12rem;
+			vertical-align: top;
+		}
+		nav div {
+			display: inline-block;
+			width: calc(100% - 12rem);
+		}
+		nav button {
+			display: inline-block;
+			font-size: inherit;
+			color: inherit;
+			font-family: inherit;
+			width: 1.75rem;
+			height: 2rem;
+			margin: 0.0625rem;
+			border: none;
+			cursor: pointer;
+			background-color: var(--shade);
+			padding: 0;
+			text-align: center;
+		}
+		textarea {
+			resize: none;
+			color: inherit;
+			width: 100%;
+			padding: 0.5rem;
+			margin: 0;
+			box-sizing: border-box;
+			height: 16rem;
+			font-family: inherit;
+			font-size: inherit;
+			border-radius: 0;
+			border: solid 2px var(--txt);
+			background-color: var(--bg);
+		}
+		select {
+			font-family: inherit;
+			font-size: inherit;
+			color: inherit;
+			border: none;
+			padding: 0.25rem 1rem;
+			background-color: var(--bg);
+			border: solid 2px var(--txt);
+			float: right;
+		}
+		select:focus, button:focus:not([disabled]), button:hover:not([disabled]), textarea:focus {
+			outline: solid 2px #08f;
+		}
+		::selection {
+			background: #08f;
+			color: white;
+		}
+		#buttons {
+			min-height: 10rem;
+		}
+		
+		hr, #buttons, textarea {
+			margin: 1rem 0;
+		}
+		
+		hr {
+			border: solid 1px var(--shade);
+		}
+		h2 {
+			margin: 0;
+		}
+		
+		#copybutton {
+			background-color: inherit;
+			color: inherit;
+			font-size: inherit;
+			font-family: inherit;
+			border: solid 2px var(--txt);
+			padding: 0.25rem 1rem;
+			float: right;
+			width: 8rem;
+		}
+		#copybutton:hover:not([disabled]) {
+			cursor: pointer;
+			background-color: var(--txt);
+			color: var(--bg);
+		}
+		#copybutton[disabled] {
+			color: var(--gray);
+			border-color: var(--gray);
+		}
+	</style>
+</head>
+<body>
+	<select id="language" onchange="openForLanguage();">
+		<option value="fr">French</option>
+		<option value="en">English</option>
+		<option value="es">Spanish</option>
+	</select>
+	<h2>IPA keyboard</h2>
+	<div id="checkbox" style="display: none;">
+		<input type="checkbox" id="ascii" checked onchange="openForLanguage();">
+		<label for="ascii">Include ASCII?</label>
+	</div>
+	<hr>
+	<div id="buttons"></div>
+	<textarea spellcheck="false" id="textarea" oninput="updatedText();"></textarea>
+	<button id="copybutton" onclick="copy();">Copy text</button>
+	<script>
+		let includeAscii = true;
+		let languages = {
+			fr: {
+				"Consonnes": "b d f g k l m n ɲ ŋ p ʁ s ʃ t v z ʒ",
+				"Semi-voyelles": "j w ɥ",
+				"Voyelles": "a ɑ e ɛ ə i œ ø o ɔ u y",
+				"Voyelles nasales": "ɑ̃ ɛ̃ œ̃ ɔ̃"
+			},
+			en: {
+				"Consonants": "b d dʒ ð f g h j k l m n ŋ p r ɹ ɻ s ʃ t tʃ θ v w z ʒ",
+				"Vowels": "ɑː ɒ æ ɛ ə ɪ iː ɔː ʊ uː ʌ",
+				"Diphthongs": "aɪ aʊ eɪ oʊ ɔɪ",
+				"Other": "ʔ ɚ ɝ ʰ"
+			},
+			es: {
+				"Consonantes": "b β d ð f g ɣ ʝ ɟ k l m ɱ n ɲ ŋ p r ɾ s θ ʃ t tʃ x ʎ",
+				"Vocales": "a e i o u",
+				"Semivocales": "j w"
+			}
+		};
+		let symbolNames = {
+			"b": "Voiced bilabial plosive",
+			"d": "Voiced alveolar plosive",
+			"f": "Voiceless labiodental fricative",
+			"g": "Voiced velar plosive",
+			"k": "Voiceless velar plosive",
+			"l": "Alveolar lateral approximant",
+			"m": "Bilabial nasal",
+			"n": "Alveolar nasal",
+			"ɲ": "Palatal nasal",
+			"ŋ": "Velar nasal",
+			"p": "Voiceless bilabial plosive",
+			"ʁ": "Voiced uvular fricative",
+			"s": "Voiceless alveolar sibilant",
+			"ʃ": "Voiceless post-alveolar sibilant",
+			"t": "Voiceless alveolar plosive",
+			"v": "Voiced labiodental fricative",
+			"z": "Voiced alveolar sibilant",
+			"ʒ": "Voiced post-alveolar sibilant",
+			"j": "Palatal approximant",
+			"w": "Labial-velar approximant",
+			"ɥ": "Labial-palatal approximant"
+		}
+		function updatedText() {
+			if (textarea.value.trim().length)
+				copybutton.removeAttribute("disabled");
+			else
+				copybutton.setAttribute("disabled", "true");
+		}
+		function openForLanguage(lang = document.querySelector("select").value) {
+			window.location.hash = lang;
+			includeAscii = ascii.checked;
+			while (buttons.firstChild) buttons.firstChild.remove();
+			let obj = languages[lang];
+			for (let category of Object.keys(obj)) {
+				let nav = buttons.appendChild(document.createElement("nav"));
+				nav.appendChild(document.createElement("span")).innerText = category;
+				let divvv = nav.appendChild(document.createElement("div"));
+				for (let letter of obj[category].split(" ")) {
+					if (!includeAscii && letter.length == 1 && /[a-z]/.test(letter)) continue;
+					let button = divvv.appendChild(document.createElement("button"));
+					button.innerText = letter;
+					if (letter in symbolNames) button.setAttribute("title", symbolNames[letter]);
+					else console.log("No IPA description for ", letter);
+					button.onclick = function() {
+						insertAtCursor(textarea, letter);
+					};
+				}
+			}
+		}
+		if (window.location.hash.length) {
+			let text = window.location.hash.substring(1);
+			if (text in languages) document.querySelector("select").value = text;
+		}
+		openForLanguage();
+		updatedText();
+		
+		function insertAtCursor (input, textToInsert) {
+		  // get current text of the input
+		  const value = input.value;
+
+		  // save selection start and end position
+		  const start = input.selectionStart;
+		  const end = input.selectionEnd;
+
+		  // update the value with our text inserted
+		  input.value = value.slice(0, start) + textToInsert + value.slice(end);
+
+		  // update cursor to be at the end of insertion
+		  input.focus();
+		  input.selectionStart = input.selectionEnd = start + textToInsert.length;
+		}
+		
+		function copy() {
+			if (textarea.value.trim().length == 0) return;
+			navigator.clipboard.writeText(textarea.value.trim());
+			copybutton.innerText = "Copied";
+			copybutton.onmouseleave = function() {
+				copybutton.innerText = "Copy text";
+			}
+		}
+	</script>
+</body>
+</html>
